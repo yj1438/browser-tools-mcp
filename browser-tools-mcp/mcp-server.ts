@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import path from "path";
 import fs from "fs";
+import { z } from "zod";
 
 // Create the MCP server
 const server = new McpServer({
@@ -175,37 +176,70 @@ async function withServerConnection<T>(
 }
 
 // We'll define our tools that retrieve data from the browser connector
-server.tool("getConsoleLogs", "Check our browser logs", async () => {
-  return await withServerConnection(async () => {
-    const response = await fetch(
-      `http://${discoveredHost}:${discoveredPort}/console-logs`
-    );
-    const json = await response.json();
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(json, null, 2),
-        },
-      ],
-    };
-  });
-});
+server.tool(
+  "getConsoleLogs",
+  "Check our browser logs",
+  { 
+    keywords: z.string().describe("The keywords contained in the log").optional(),
+  },
+  async ({ keywords }) => {
+    return await withServerConnection(async () => {
+      const response = await fetch(
+        `http://${discoveredHost}:${discoveredPort}/console-logs`
+      );
+      const json = await response.json();
+      /**
+       * json eg:
+        [
+          {
+            "type": "console-log",
+            "level": "log",
+            "message": "content script loaded",
+            "timestamp": 1762399170098
+          },
+        ]
+       */
+
+      let result: Array<any> = json;
+      if (keywords) {
+        result = result.filter(log => log.message.includes(keywords));
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    });
+  },
+);
 
 server.tool(
   "getConsoleErrors",
   "Check our browsers console errors",
-  async () => {
+  { 
+    keywords: z.string().describe("The keywords contained in the log").optional(),
+  },
+  async (keywords) => {
     return await withServerConnection(async () => {
       const response = await fetch(
         `http://${discoveredHost}:${discoveredPort}/console-errors`
       );
       const json = await response.json();
+
+      let result: Array<any> = json;
+      if (keywords) {
+        result = result.filter(log => log.message.includes(keywords));
+      }
+
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify(json, null, 2),
+            text: JSON.stringify(result, null, 2),
           },
         ],
       };
@@ -213,40 +247,86 @@ server.tool(
   }
 );
 
-server.tool("getNetworkErrors", "Check our network ERROR logs", async () => {
-  return await withServerConnection(async () => {
-    const response = await fetch(
-      `http://${discoveredHost}:${discoveredPort}/network-errors`
-    );
-    const json = await response.json();
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(json, null, 2),
-        },
-      ],
-      isError: true,
-    };
-  });
-});
+server.tool(
+  "getNetworkErrors",
+  "Check our network ERROR logs",
+  { 
+    domain: z.string().describe("The domain to filter the network logs by").optional(),
+    keywords: z.string().describe("The keywords contained in the log").optional(),
+  },
+  async ({ keywords, domain  }) => {
+    return await withServerConnection(async () => {
+      const response = await fetch(
+        `http://${discoveredHost}:${discoveredPort}/network-errors`
+      );
+      const json = await response.json();
+      let result: Array<any> = json;
+      if (domain) {
+        result = result.filter(log => log.url.includes(domain));
+      }
+      if (keywords) {
+        result = result.filter(log => log.responseBody.includes(keywords));
+      }
 
-server.tool("getNetworkLogs", "Check ALL our network logs", async () => {
-  return await withServerConnection(async () => {
-    const response = await fetch(
-      `http://${discoveredHost}:${discoveredPort}/network-success`
-    );
-    const json = await response.json();
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(json, null, 2),
-        },
-      ],
-    };
-  });
-});
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: true,
+      };
+    });
+  },
+);
+
+server.tool(
+  "getNetworkLogs",
+  "Check ALL our network logs",
+  { 
+    domain: z.string().describe("The domain to filter the network logs by").optional(),
+    keywords: z.string().describe("The keywords contained in the log").optional(),
+  },
+  async ({ keywords, domain }) => {
+    return await withServerConnection(async () => {
+      const response = await fetch(
+        `http://${discoveredHost}:${discoveredPort}/network-success`
+      );
+      const json = await response.json();
+      /**
+       * json eg:
+       * [
+          {
+            "type": "network-request",
+            "url": "https://xxx",
+            "method": "GET",
+            "status": 200,
+            "requestBody": "",
+            "responseBody": "{}",
+            "timestamp": 1762344730925
+          }
+       * ]
+       */
+      let result: Array<any> = json;
+      if (domain) {
+        result = result.filter(log => log.url.includes(domain));
+      }
+      if (keywords) {
+        result = result.filter(log => log.responseBody.includes(keywords));
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    });
+  },
+);
 
 server.tool(
   "takeScreenshot",
