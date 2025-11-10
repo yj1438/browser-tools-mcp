@@ -180,9 +180,9 @@ server.tool(
   "getConsoleLogs",
   "Check our browser logs",
   { 
-    keywords: z.string().describe("The keywords contained in the log").optional(),
+    respKeywords: z.array(z.string()).describe("The keywords contained in the log message").optional(),
   },
-  async ({ keywords }) => {
+  async ({ respKeywords }) => {
     return await withServerConnection(async () => {
       const response = await fetch(
         `http://${discoveredHost}:${discoveredPort}/console-logs`
@@ -201,8 +201,8 @@ server.tool(
        */
 
       let result: Array<any> = json;
-      if (keywords) {
-        result = result.filter(log => log.message.includes(keywords));
+      if (respKeywords) {
+        result = result.filter(log => respKeywords.some(keyword => log.message.includes(keyword)));
       }
 
       return {
@@ -221,9 +221,9 @@ server.tool(
   "getConsoleErrors",
   "Check our browsers console errors",
   { 
-    keywords: z.string().describe("The keywords contained in the log").optional(),
+    respKeywords: z.array(z.string()).describe("The keywords contained in the log message").optional(),
   },
-  async (keywords) => {
+  async ({ respKeywords }) => {
     return await withServerConnection(async () => {
       const response = await fetch(
         `http://${discoveredHost}:${discoveredPort}/console-errors`
@@ -231,8 +231,8 @@ server.tool(
       const json = await response.json();
 
       let result: Array<any> = json;
-      if (keywords) {
-        result = result.filter(log => log.message.includes(keywords));
+      if (respKeywords) {
+        result = result.filter(log => respKeywords.some(keyword => log.message.includes(keyword)));
       }
 
       return {
@@ -251,21 +251,21 @@ server.tool(
   "getNetworkErrors",
   "Check our network ERROR logs",
   { 
-    domain: z.string().describe("The domain to filter the network logs by").optional(),
-    keywords: z.string().describe("The keywords contained in the log").optional(),
+    urlKeywords: z.string().describe("The keywords contained in the request URL").optional(),
+    respKeywords: z.array(z.string()).describe("The keywords contained in the response body").optional(),
   },
-  async ({ keywords, domain  }) => {
+  async ({ respKeywords, urlKeywords  }) => {
     return await withServerConnection(async () => {
       const response = await fetch(
         `http://${discoveredHost}:${discoveredPort}/network-errors`
       );
       const json = await response.json();
       let result: Array<any> = json;
-      if (domain) {
-        result = result.filter(log => log.url.includes(domain));
+      if (urlKeywords) {
+        result = result.filter(log => log.url.includes(urlKeywords));
       }
-      if (keywords) {
-        result = result.filter(log => log.responseBody.includes(keywords));
+      if (respKeywords) {
+        result = result.filter(log => respKeywords.some(keyword => log.responseBody.includes(keyword)));
       }
 
       return {
@@ -285,10 +285,10 @@ server.tool(
   "getNetworkLogs",
   "Check ALL our network logs",
   { 
-    domain: z.string().describe("The domain to filter the network logs by").optional(),
-    keywords: z.string().describe("The keywords contained in the log").optional(),
+    urlKeywords: z.string().describe("The keywords contained in the request URL").optional(),
+    respKeywords: z.array(z.string()).describe("The keywords contained in the response body").optional(),
   },
-  async ({ keywords, domain }) => {
+  async ({ respKeywords, urlKeywords }) => {
     return await withServerConnection(async () => {
       const response = await fetch(
         `http://${discoveredHost}:${discoveredPort}/network-success`
@@ -309,11 +309,11 @@ server.tool(
        * ]
        */
       let result: Array<any> = json;
-      if (domain) {
-        result = result.filter(log => log.url.includes(domain));
+      if (urlKeywords) {
+        result = result.filter(log => log.url.includes(urlKeywords));
       }
-      if (keywords) {
-        result = result.filter(log => log.responseBody.includes(keywords));
+      if (respKeywords) {
+        result = result.filter(log => respKeywords.some(keyword => log.responseBody.includes(keyword)));
       }
 
       return {
